@@ -6,6 +6,59 @@ Figma 디자인 명세서 검증, Android Studio Journeys 기반 UI 테스트, G
 
 ---
 
+## 설치
+
+### 방법 1 — Claude Code CLI
+
+```bash
+claude plugin install https://github.com/Wonjong-Jeong/claude-android-qa-plugin
+```
+
+### 방법 2 — 마켓플레이스 등록 후 설치
+
+**① 마켓플레이스 등록** (최초 1회):
+
+Claude Code 세션 내에서 실행합니다:
+
+```
+/plugin marketplace add https://github.com/Wonjong-Jeong/claude-android-qa-plugin
+```
+
+**② 플러그인 설치**:
+
+```
+/plugin install claude-android-qa-plugin@claude-android-qa-plugin
+```
+
+### 방법 3 — settings.json으로 자동 활성화
+
+`~/.claude/settings.json`에 추가하면 모든 세션에서 자동으로 로드됩니다:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "claude-android-qa-plugin": {
+      "source": {
+        "source": "github",
+        "repo": "Wonjong-Jeong/claude-android-qa-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "claude-android-qa-plugin@claude-android-qa-plugin": true
+  }
+}
+```
+
+### 방법 4 — 로컬 클론
+
+```bash
+git clone https://github.com/Wonjong-Jeong/claude-android-qa-plugin.git
+claude --plugin-dir ./claude-android-qa-plugin
+```
+
+---
+
 ## 포함된 도구
 
 ### Agents
@@ -20,28 +73,6 @@ Figma 디자인 명세서 검증, Android Studio Journeys 기반 UI 테스트, G
 | 스킬 | 트리거 | 설명 |
 |------|--------|------|
 | `spec-writer` | `/spec-writer`, `스펙 작성해줘` | Figma 또는 화면 설명에서 Gherkin `.feature` 파일과 ViewModel 단위 테스트 작성 |
-
----
-
-## 설치
-
-### 1. 마켓플레이스 등록
-
-```
-/plugin marketplace add https://github.com/Wonjong-Jeong/claude-android-qa-plugin
-```
-
-### 2. 플러그인 설치
-
-```
-/plugin install claude-android-qa-plugin@claude-android-qa-plugin
-```
-
-### 또는 직접 설치 (CLI)
-
-```bash
-claude plugin install https://github.com/Wonjong-Jeong/claude-android-qa-plugin
-```
 
 ---
 
@@ -106,14 +137,6 @@ feature 파일 써줘
 
 ---
 
-## Figma MCP 설정
-
-`design-qa-agent`와 `spec-writer`의 Figma 연동을 위해 Figma Desktop에서 MCP 서버를 활성화해야 합니다.
-
-Figma Desktop → 설정 → Enable Developer Tools → MCP Server 활성화
-
----
-
 ## 워크플로우
 
 ```
@@ -123,6 +146,14 @@ ui-test-agent        →   Journey XML 생성 + 테스트 실행
     ↓
 design-qa-agent      →   디자인 명세 vs 실제 UI 비교 보고서
 ```
+
+---
+
+## Figma MCP 설정
+
+`design-qa-agent`와 `spec-writer`의 Figma 연동을 위해 Figma Desktop에서 MCP 서버를 활성화해야 합니다.
+
+Figma Desktop → 설정 → Enable Developer Tools → MCP Server 활성화
 
 ---
 
