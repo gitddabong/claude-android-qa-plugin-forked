@@ -1,0 +1,22 @@
+{
+  "name": "claude-android-qa-plugin",
+  "owner": {
+    "name": "Wonjong Jeong",
+    "url": "https://github.com/Wonjong-Jeong"
+  },
+  "metadata": {
+    "description": "Android 앱 개발을 위한 디자인 QA, UI 테스트, 비즈니스 로직 스펙 작성 도구 모음"
+  },
+  "plugins": [
+    {
+      "name": "claude-android-qa-plugin",
+      "source": ".",
+      "description": "Android 앱 개발을 위한 Claude Code 플러그인 — Figma 디자인 QA, Maestro UI 테스트, Gherkin 스펙 작성 자동화",
+      "version": "1.0.0",
+      "author": {
+        "name": "Wonjong Jeong",
+        "url": "https://github.com/Wonjong-Jeong"
+      }
+    }
+  ]
+}
