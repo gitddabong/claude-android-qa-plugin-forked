@@ -13,7 +13,7 @@ version: 2.0.0
 
 입력을 받아 두 가지 파일을 유저와 함께 완성합니다:
 
-1. **`.feature` 파일 (Gherkin)** — 비즈니스 로직의 단일 진실 공급원. 기획자도 읽을 수 있는 자연어 명세이며 ui-test-agent의 Journey XML 생성 입력으로 사용됩니다.
+1. **`.feature` 파일 (Gherkin)** — 비즈니스 로직의 단일 진실 공급원. 기획자도 읽을 수 있는 자연어 명세이며 ui-test-agent의 UI 테스트 생성 입력으로 사용됩니다.
 2. **`ViewModelTest.kt`** — `.feature`에서 파생된 ViewModel 단위 테스트. 상태·코드 레벨 검증용입니다.
 
 한 번에 완성하려 하지 않고, 초안을 제시한 뒤 유저와 티키타카로 다듬어 나갑니다.
@@ -47,8 +47,8 @@ project_root가 제공된 경우, 다음을 탐색하여 기존 패턴을 파악
 
 ```
 # .feature 파일 탐색 (있으면 불러와서 편집 모드)
-Glob: <project_root>/<module_path>/src/journeysTest/specs/<ScreenName>.feature
-Glob: <project_root>/**/src/journeysTest/specs/<ScreenName>.feature   ← module_path 미제공 시
+Glob: <project_root>/<module_path>/src/uiTest/specs/<ScreenName>.feature
+Glob: <project_root>/**/src/uiTest/specs/<ScreenName>.feature   ← module_path 미제공 시
 
 # 소스 탐색
 Glob: <project_root>/**/*<ScreenName>*ViewModel*.kt
@@ -97,7 +97,7 @@ Feature: 포스트 상세 화면 — 좋아요 기능
     Then 북마크 아이콘 활성화
 
 빠진 케이스가 있거나 수정할 내용이 있으면 말씀해 주세요.
-@manual-only 는 Journey 자동화가 불가능한 케이스입니다 (API 실패 등 DI 주입 필요).
+@manual-only 는 UI 테스트 자동화가 불가능한 케이스입니다 (API 실패 등 DI 주입 필요).
 ```
 
 ### Phase 4 — 티키타카 루프
@@ -119,7 +119,7 @@ Feature: 포스트 상세 화면 — 좋아요 기능
 
 **`.feature` 파일 기본 경로**:
 ```
-<project_root>/<module_path>/src/journeysTest/specs/<ScreenName>.feature
+<project_root>/<module_path>/src/uiTest/specs/<ScreenName>.feature
 ```
 
 **`ViewModelTest.kt` 기본 경로**:
@@ -142,7 +142,7 @@ Feature: 포스트 상세 화면 — 좋아요 기능
 ✅ 저장 완료
 
 생성된 파일:
-  - <module_path>/src/journeysTest/specs/<ScreenName>.feature     ← ui-test-agent Journey 입력용
+  - <module_path>/src/uiTest/specs/<ScreenName>.feature     ← ui-test-agent UI 테스트 입력용
   - <module_path>/src/test/java/.../<ScreenName>ViewModelTest.kt
 
 ui-test-agent 실행 방법:
@@ -165,7 +165,7 @@ Feature: 포스트 상세 화면 — 좋아요 기능
 ### 규칙 G2 — Background: 화면 진입 공통 단계
 
 모든 Scenario에 공통으로 필요한 진입 단계는 Background로 묶습니다.
-ui-test-agent가 이를 Journey XML의 entry_steps로 변환합니다.
+ui-test-agent가 이를 UI 테스트의 entry_steps로 변환합니다.
 
 ```gherkin
 Background:
@@ -193,7 +193,7 @@ Scenario: 비로그인 상태에서 좋아요 탭
 ### 규칙 G4 — Then: UI 시각 결과 중심으로 서술
 
 상태 필드명이 아닌 실제 화면에서 보이는 결과를 기준으로 작성합니다.
-ui-test-agent가 이 문장을 Journey XML assertion step으로 직접 사용합니다.
+ui-test-agent가 이 문장을 UI 테스트 assertion step으로 직접 사용합니다.
 
 ```gherkin
 # ❌ 상태 필드 기준
@@ -207,7 +207,7 @@ And 좋아요 수 텍스트가 증가한다
 ### 규칙 G5 — @manual-only: Journey 자동화 불가 케이스 태그
 
 API 실패처럼 앱 실행 중 DI 주입 없이는 재현할 수 없는 케이스에 태그를 붙입니다.
-ui-test-agent가 이 태그를 보고 Journey XML 생성을 건너뛰고 보고서에 "수동 테스트 필요"로 분류합니다.
+ui-test-agent가 이 태그를 보고 UI 테스트 생성을 건너뛰고 보고서에 "수동 테스트 필요"로 분류합니다.
 
 ```gherkin
 @manual-only
@@ -268,7 +268,7 @@ assertTrue("하트 아이콘이 채워진 빨간색으로 변경되어야 함", 
 
 ### 규칙 K4 — 작성하지 않는 것
 
-- Compose UI Test / Espresso → Journey와 역할 중복
+- Compose UI Test / Espresso → UI 테스트와 역할 중복
 - Repository / UseCase 단위 테스트
 - `verify(useCase).invoke()` 방식 구현 세부사항 검증
 - 커버리지 숫자를 위한 trivial 테스트
