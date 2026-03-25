@@ -249,15 +249,40 @@ Background:
   And 첫 번째 포스트 카드를 탭하여 상세 화면에 진입한다  ← 이 화면 전용 진입 단계
 ```
 
+**진입 경로에 따라 동작이 달라지는 경우 — Scenario Given에서 직접 경로 지정**:
+
+Background를 사용하지 않고, 각 Scenario의 Given에 진입 경로를 명시합니다.
+`@flow-ref`는 Feature 레벨에 사용된 모든 참조를 합산해서 선언합니다.
+
+```gherkin
+@flow-ref: Login, Search, Home
+Feature: A 화면 — 검색어 하이라이트
+
+Scenario: 검색 결과에서 진입 시 검색어 하이라이트 표시
+  Given Login flow를 완료한다
+  And Search flow를 완료한다
+  And 검색 결과에서 포스트를 탭하여 A 화면에 진입한다
+  Then 검색어가 하이라이트 표시된다
+
+Scenario: 홈 피드에서 진입 시 하이라이트 없음
+  Given Login flow를 완료한다
+  And Home flow를 완료한다
+  And 홈 피드에서 포스트를 탭하여 A 화면에 진입한다
+  Then 하이라이트 없이 일반 표시된다
+```
+
+> Background는 모든 Scenario에 공통 경로를 적용하므로, 경로별로 동작이 다른 경우에는 사용하지 않습니다.
+
 **참조 화면의 `.feature`가 없는 경우**:
 
 ```gherkin
-# @flow-ref 없이 Background에 직접 서술
-Background:
+# @flow-ref 없이 Given에 직접 서술
+Scenario: 검색 결과에서 진입 시 검색어 하이라이트 표시
   Given 앱을 실행한다
   And 이메일 "test@example.com"과 비밀번호 "password"로 로그인한다
-  And 홈 화면의 Content 탭을 탭한다
-  And 첫 번째 포스트 카드를 탭하여 상세 화면에 진입한다
+  And 검색창에 "포스트"를 입력하여 검색 결과 화면에 진입한다
+  And 첫 번째 검색 결과를 탭하여 A 화면에 진입한다
+  Then 검색어가 하이라이트 표시된다
 ```
 
 이 경우 ui-test-agent는 각 단계를 개별 Maestro 액션으로 변환합니다. 참조 화면의 스펙 작성을 권장합니다.
