@@ -100,6 +100,7 @@ COLOR_MAP      = {}             # Phase 1.5에서 구축된 프로젝트 색상 
 COMPOSABLE_FQN = ""             # Phase 1.3에서 탐지된 화면 Composable FQN
 PREVIEW_FUNS   = []             # Phase 1.3에서 탐지된 @Preview 함수 목록
 THEME_NAME     = ""             # Phase 1.4에서 탐지된 앱 테마명
+STATE_DELTA_MAP = {}            # Phase 2.5에서 구축된 상태 간 UI 변화 맵
 PAPARAZZI_READY = false         # Phase 1.1에서 확인
 SNAPSHOT_DIR   = ""             # Paparazzi 스냅샷 출력 경로
 DEVICE_CONFIG  = device_config 값 (미제공 시 "PIXEL_5")
@@ -334,6 +335,192 @@ mcp__figma-desktop__get_screenshot(nodeId: "<node_id>")
 
 - 각 figma_node당 1회만 호출.
 - 컴포넌트별 호출은 Phase 4.2에서 불일치 감지 시에만 선택적으로 수행.
+
+---
+
+### Phase 2.5 — 상태 전환 분석 (State Transition Delta)
+
+`figma_nodes`가 2개 이상인 경우 수행합니다. 1개면 이 Phase를 건너뜁니다.
+
+동일 화면의 서로 다른 상태 프레임을 비교하여 **어떤 UI 속성이 상태에 따라 변화하는지** 추출합니다.
+
+#### 2.5.1 상태 간 Figma 명세 비교
+
+Phase 2.1에서 각 `figma_node`별로 파싱한 `FIGMA_SPEC[label]`을 짝으로 비교합니다.
+
+**비교 대상**: 첫 번째 상태(기준)를 base로, 나머지 상태를 각각 비교합니다.
+
+```
+base_spec  = FIGMA_SPEC[figma_nodes[0].label]   # 예: "기본 상태"
+other_spec = FIGMA_SPEC[figma_nodes[i].label]    # 예: "에러 상태", "로딩 상태"
+```
+
+**비교 항목**:
+
+| 카테고리 | 비교 방법 |
+|---------|---------|
+| 색상 변화 | 동일 위치 컴포넌트의 fill/background/foreground 색상 비교 |
+| 텍스트 변화 | 동일 위치 텍스트 노드의 content 비교 (텍스트 변경, 추가, 삭제) |
+| 가시성 변화 | base에 있고 other에 없는 요소(숨김) 또는 그 반대(표시) |
+| 레이아웃 변화 | 동일 컴포넌트의 크기/위치/패딩 변경 |
+| 아이콘 변화 | 동일 위치 아이콘 노드의 변경 |
+| 요소 추가/삭제 | 한쪽 상태에만 존재하는 컴포넌트 |
+
+**노드 매칭 전략**:
+- Figma 노드의 `name` 속성이 동일한 경우 → 같은 컴포넌트로 매칭
+- name이 다르면 레이어 순서(index) + 위치(x, y 근접성)로 매칭
+- 매칭 불가 → 추가/삭제로 분류
+
+#### 2.5.2 시각 diff 보조 (선택)
+
+`get_design_context`의 구조 비교만으로 변화를 특정하기 어려운 경우,
+Phase 2.3에서 확보한 상태별 스크린샷을 직접 비교합니다:
+
+```
+두 상태의 Figma 스크린샷을 나란히 Read로 로드하여 시각적으로 차이를 식별합니다.
+- 색상 변화된 영역
+- 나타나거나 사라진 요소
+- 텍스트 변경
+```
+
+> 이 단계는 구조 비교에서 놓친 변화를 보완하는 용도이며, 정량화 가능한 항목은 2.5.1 결과를 우선합니다.
+
+#### 2.5.3 STATE_DELTA_MAP 구성
+
+```
+STATE_DELTA_MAP = {
+  "기본 상태 → 에러 상태": {
+    changes: [
+      {
+        component: "이메일 입력 필드",
+        category: "color",
+        property: "border_color",
+        base_value: "#CCCCCC",          # 기본 상태
+        changed_value: "#E84234",       # 에러 상태
+        figma_node_id: "700:11800"
+      },
+      {
+        component: "에러 메시지 텍스트",
+        category: "visibility",
+        property: "visible",
+        base_value: false,              # 기본 상태에서 없음
+        changed_value: true,            # 에러 상태에서 나타남
+        figma_node_id: "700:11805"
+      },
+      {
+        component: "제출 버튼",
+        category: "text",
+        property: "label",
+        base_value: "가입하기",
+        changed_value: "다시 시도",
+        figma_node_id: "700:11810"
+      },
+      {
+        component: "프로필 영역",
+        category: "background",
+        property: "fill_type",
+        base_value: "solid:#FFBB00",    # 기본: 단색 노란색
+        changed_value: "image:url",     # 다른 상태: URL 이미지 배경
+        figma_node_id: "700:11820"
+      }
+    ]
+  },
+  "기본 상태 → 로딩 상태": {
+    changes: [
+      {
+        component: "제출 버튼",
+        category: "visibility",
+        property: "content",
+        base_value: "text:가입하기",
+        changed_value: "loader:circular",
+        figma_node_id: "700:11810"
+      },
+      ...
+    ]
+  }
+}
+```
+
+#### 2.5.4 소스코드 상태 분기 검증
+
+STATE_DELTA_MAP의 각 변화가 소스코드에서 실제로 구현되어 있는지 검증합니다.
+
+**검증 전략**:
+
+```
+각 change에 대해:
+
+1단계 — UiState 필드 매핑:
+  STATE_DELTA_MAP의 변화를 트리거하는 UiState 필드를 추론합니다.
+  예: "에러 메시지 텍스트 표시" → UiState.error 필드 (Phase 1.6에서 분석한 UiState 구조 참조)
+
+2단계 — 조건 분기 탐색:
+  SCREEN_FILES에서 해당 필드를 참조하는 조건문을 grep합니다:
+  Grep: "state\.error\|uiState\.error\|\.error\b" in SCREEN_FILES
+  Grep: "if\s*(\|when\s*(\|\.let\s*{" in 해당 라인 주변 (±5줄)
+
+3단계 — 판정:
+  - 조건 분기 발견 → IMPLEMENTED (구현됨)
+  - 조건 분기 미발견 → MISSING (누락 의심)
+  - 필드는 있으나 UI 반영 로직 없음 → PARTIAL (불완전 구현)
+```
+
+**결과 구조**:
+```
+STATE_IMPL_CHECK = [
+  {
+    transition: "기본 상태 → 에러 상태",
+    component: "에러 메시지 텍스트",
+    category: "visibility",
+    ui_state_field: "error: String?",
+    code_branch: "state.error?.let { Text(it, color = Error) }",  # 발견된 코드
+    code_location: "SignUpScreen.kt:67",
+    status: "IMPLEMENTED"
+  },
+  {
+    transition: "기본 상태 → 에러 상태",
+    component: "이메일 입력 필드 border",
+    category: "color",
+    ui_state_field: "error: String?",
+    code_branch: null,                    # 분기 미발견
+    code_location: null,
+    status: "MISSING"                     # Figma에선 border가 빨간색으로 변하지만 코드에 분기 없음
+  },
+  {
+    transition: "기본 상태 → 로딩 상태",
+    component: "프로필 영역 배경",
+    category: "background",
+    ui_state_field: "profileImageUrl: String?",
+    code_branch: "AsyncImage(model = state.profileImageUrl, ...)",
+    code_location: "SignUpScreen.kt:34",
+    status: "IMPLEMENTED",
+    note: "네트워크 이미지 — Paparazzi 렌더링 시 placeholder만 표시됨"
+  }
+]
+```
+
+#### 2.5.5 상태 전환 요약 출력
+
+```
+## 상태 전환 분석 — <화면명>
+
+상태 수: N개 / 전환 쌍: M개
+감지된 UI 변화: X건
+
+| # | 전환 | 컴포넌트 | 변화 유형 | base 값 | 변경 값 | 코드 구현 | 위치 |
+|---|------|---------|----------|---------|--------|----------|------|
+| 1 | 기본→에러 | 입력 필드 border | color | #CCC | #E84234 | MISSING | — |
+| 2 | 기본→에러 | 에러 메시지 | visibility | 숨김 | 표시 | IMPLEMENTED | :67 |
+| 3 | 기본→로딩 | 프로필 배경 | background | solid:#FFB | image:url | IMPLEMENTED* | :34 |
+
+* 네트워크 이미지 컴포넌트 — Paparazzi 비교 시 @network-image 태그 부여
+
+MISSING 항목: K건 → Phase 5에서 Critical 이슈로 분류
+```
+
+> **Phase 3 이후 활용**: STATE_DELTA_MAP은 Phase 3.5(수치 검증)와 Phase 4(시각 비교)에서
+> 상태별 비교 시 "이 컴포넌트는 상태에 따라 변해야 하는 요소"인지 판단하는 기준으로 사용됩니다.
+> Phase 5(이슈 분류)에서는 MISSING 상태 분기를 Critical로 분류합니다.
 
 ---
 
@@ -884,18 +1071,27 @@ for name, app_hex, figma_hex in pairs:
 
 ### Phase 5 — 이슈 분류
 
-Phase 3.5 + Phase 4 결과를 종합하여 최종 심각도를 부여합니다:
+Phase 2.5 + Phase 3.5 + Phase 4 결과를 종합하여 최종 심각도를 부여합니다:
 
 | 등급 | 기준 |
 |------|------|
-| Critical | Figma vs 구현 명백한 불일치 / 누락 요소 / 색상 dE > 5 / SSIM < 0.85 |
-| Minor | 허용 오차 초과 / 색상 dE 3~5 / SSIM 0.85~0.95 |
-| Pass | 오차 허용 범위 내 / 색상 dE <= 3 / SSIM >= 0.95 |
+| Critical | Figma vs 구현 명백한 불일치 / 누락 요소 / 색상 dE > 5 / SSIM < 0.85 / **상태 분기 MISSING** |
+| Minor | 허용 오차 초과 / 색상 dE 3~5 / SSIM 0.85~0.95 / 상태 분기 PARTIAL |
+| Pass | 오차 허용 범위 내 / 색상 dE <= 3 / SSIM >= 0.95 / 상태 분기 IMPLEMENTED |
+
+**상태 전환 이슈 분류** (Phase 2.5 결과):
+
+| STATE_IMPL_CHECK status | 심각도 | 설명 |
+|------------------------|--------|------|
+| MISSING | Critical | Figma에서 상태별 UI 변화가 있지만 코드에 분기 로직 없음 |
+| PARTIAL | Minor | 필드는 존재하나 UI 반영 로직이 불완전 |
+| IMPLEMENTED | Pass | 코드에서 정상적으로 분기 처리됨 |
+| @network-image | Pass (조건부) | 네트워크 이미지 컴포넌트 — Paparazzi 비교에서 해당 영역 제외 |
 
 이슈마다 기록:
 - 현상 / 기대 동작
 - Figma 값 / 소스코드 값
-- method: quantitative | visual
+- method: quantitative | visual | **state-diff** (상태 전환 분석에서 발견)
 - 신뢰도: HIGH (quantitative) | MED (mixed) | LOW (visual only)
 - 추정 원인 코드 위치 (`파일:라인번호`)
 
@@ -952,6 +1148,15 @@ Phase 3.5 + Phase 4 결과를 종합하여 최종 심각도를 부여합니다:
 
 | 요소 | 항목 | Figma 값 | 소스코드 값 | 허용 오차 | 결과 | method |
 |------|------|---------|-----------|---------|------|--------|
+
+---
+
+## 상태 전환 분석 (Phase 2.5)
+
+<!-- figma_nodes가 2개 이상일 때만 표시 -->
+
+| # | 전환 | 컴포넌트 | 변화 유형 | base 값 | 변경 값 | 코드 구현 | 위치 | method |
+|---|------|---------|----------|---------|--------|----------|------|--------|
 
 ---
 
@@ -1053,6 +1258,9 @@ Critical 이슈가 있으면 수정 진행 여부를 확인합니다.
 | scikit-image 미설치 | fallback 윈도우 SSIM 사용 |
 | Paparazzi 스냅샷 해상도와 Figma 이미지 해상도 불일치 | PIL 리사이즈 후 비교 |
 | Theme 탐색 실패 | 사용자에게 테마명 입력 요청 |
+| figma_nodes가 1개 | Phase 2.5 상태 전환 분석 건너뜀 |
+| 상태 간 Figma 노드 구조가 크게 다름 (노드 매칭 실패) | 시각 diff 보조(2.5.2)로 fallback, 매칭 불가 요소는 추가/삭제로 분류 |
+| 네트워크 이미지 컴포넌트 감지 (AsyncImage 등) | @network-image 태그, Paparazzi 비교에서 해당 영역 제외 |
 
 ---
 
