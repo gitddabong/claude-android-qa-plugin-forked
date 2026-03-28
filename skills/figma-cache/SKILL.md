@@ -129,10 +129,11 @@ print(json.dumps(data, indent=2))
 캐시 경로: <PROJECT_ROOT>/.figma-cache/
 
 수집 대상: N개 화면 (상태 포함 M개 프레임)
-예상 API 호출: M × 3 = K회
+예상 API 호출: M × 4 = K회 (SVG 포함, 토큰 없으면 M × 3)
   - get_design_context: M회
-  - get_screenshot: M회
+  - get_screenshot (PNG): M회
   - get_variable_defs: M회
+  - get_image (SVG): M회 (FIGMA_TOKEN 있을 때만)
 딜레이: <DELAY_SECONDS>초/호출
 예상 소요: ~X분
 
@@ -186,6 +187,17 @@ mkdir -p "$CACHE_DIR"
      mcp__figma-desktop__get_variable_defs(nodeId: "<node_id>")
      → 응답을 <NODE_DIR>/variables.json에 저장
      sleep(DELAY_SECONDS)
+
+  4) SVG 내보내기 (REST API 전용):
+     MCP 모드에서는 SVG 내보내기를 지원하지 않으므로,
+     FIGMA_TOKEN이 있으면 REST API로 SVG를 추가 수집합니다.
+     FIGMA_TOKEN이 없으면 이 단계를 건너뜁니다.
+
+     SVG_URL=$(curl -s -H "X-Figma-Token: ${FIGMA_TOKEN}" \
+       "https://api.figma.com/v1/images/${FILE_KEY}?ids=${NODE_ID}&format=svg" \
+       | python3 -c "import json,sys; d=json.load(sys.stdin); print(list(d['images'].values())[0])")
+     curl -s -o "${NODE_DIR}/design.svg" "${SVG_URL}"
+     sleep(DELAY_SECONDS)
 ```
 
 **REST API 모드** (`DATA_SOURCE=rest-api` 또는 MCP에서 자동 전환):
@@ -208,6 +220,13 @@ mkdir -p "$CACHE_DIR"
   curl -s -H "X-Figma-Token: ${FIGMA_TOKEN}" \
     "https://api.figma.com/v1/files/${FILE_KEY}/variables/local" \
     -o "${NODE_DIR}/variables.json"
+  sleep ${DELAY_SECONDS}
+
+  # 4) SVG 내보내기
+  SVG_URL=$(curl -s -H "X-Figma-Token: ${FIGMA_TOKEN}" \
+    "https://api.figma.com/v1/images/${FILE_KEY}?ids=${NODE_ID}&format=svg" \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); print(list(d['images'].values())[0])")
+  curl -s -o "${NODE_DIR}/design.svg" "${SVG_URL}"
   sleep ${DELAY_SECONDS}
 ```
 
@@ -330,12 +349,14 @@ API 호출: K회
   │
   ├─ 700-7506/                     # node-id 기준 폴더 (: → -)
   │   ├─ context.json              # get_design_context 응답
-  │   ├─ screenshot.png            # get_screenshot 이미지
+  │   ├─ screenshot.png            # get_screenshot 이미지 (PNG)
+  │   ├─ design.svg                # SVG 내보내기 (FIGMA_TOKEN 있을 때만)
   │   └─ variables.json            # get_variable_defs 응답
   │
   ├─ 700-12935/
   │   ├─ context.json
   │   ├─ screenshot.png
+  │   ├─ design.svg
   │   └─ variables.json
   │
   └─ ...
