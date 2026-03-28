@@ -53,6 +53,15 @@ Figma: https://www.figma.com/design/ABC123/MyApp?node-id=100-200
 모듈: feature/signup
 ```
 
+예시 (캐시 모드 — API 호출 없이 QA):
+```
+/design-qa-all --cache
+모듈: feature/signup, feature/home
+```
+
+> 캐시 모드는 `/design-qa-export`로 사전 수집된 `.figma-cache/` 데이터를 사용합니다.
+> Figma API 호출 0건으로 전체 QA를 수행합니다.
+
 ---
 
 ## Steps
@@ -65,13 +74,45 @@ Figma: https://www.figma.com/design/ABC123/MyApp?node-id=100-200
 2. `모듈:` -> `module_paths` 배열 (쉼표 구분, 기본: `["app"]`)
 3. `범위:` -> `qa_scope` (기본: `all`)
 4. `디바이스:` -> `device_config` (기본: `PIXEL_5`)
+5. `--cache` 플래그 → `USE_CACHE` (true/false)
 
 Figma URL이 없으면 즉시 중단하고 사용법을 안내합니다.
+
+`--cache` 모드에서는 Figma URL이 불필요합니다 (캐시에서 읽음).
 
 ### Step 1. 환경 자동 감지
 
 ```bash
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+### Step 1.5. 캐시 모드 처리 (`USE_CACHE=true`인 경우)
+
+캐시 디렉토리에서 데이터를 로드합니다:
+
+```
+CACHE_DIR = <PROJECT_ROOT>/.figma-cache
+
+1단계 — 캐시 유효성 검증:
+  Read: <CACHE_DIR>/cache-meta.json
+
+  검증 항목:
+  - status가 "complete"인지 (partial이면 경고 + 진행 여부 확인)
+  - exported_at이 7일 이내인지 (초과 시 경고)
+  - 각 노드 폴더에 context.json과 screenshot.png가 존재하는지
+
+2단계 — screen_groups 로드:
+  Read: <CACHE_DIR>/screen-groups.json
+  → SCREEN_GROUPS 구성 (Step 3과 동일한 구조)
+
+3단계 — Step 2, 3 건너뛰기:
+  캐시에서 SCREEN_GROUPS를 로드했으므로 Step 4(Composable 매칭)로 바로 진행합니다.
+```
+
+캐시가 없거나 손상된 경우:
+```
+".figma-cache가 없습니다.
+ 먼저 /design-qa-export로 Figma 데이터를 수집하세요."
 ```
 
 ### Step 2. Figma 구조 탐색 — 화면 프레임 목록 추출
@@ -188,6 +229,7 @@ Agent(design-consistency-agent):
       module_path: <매칭된 모듈>
     - ...  (QA_TARGETS 전체)
   project_root: <PROJECT_ROOT>
+  cache_dir: <CACHE_DIR>             # --cache 모드 시 전달, 미사용 시 생략
 ```
 
 **반환값**: `SCREEN_HINTS` — 화면별 주의 포인트
@@ -231,6 +273,7 @@ SCREEN_HINTS = {
     qa_scope: <범위>
     device_config: <디바이스>
     hints: SCREEN_HINTS["<화면명>"]    # consistency-agent가 생성한 hints
+    cache_dir: <CACHE_DIR>             # --cache 모드 시 전달, 미사용 시 생략
 ```
 
 **진행 상황 표시**:
