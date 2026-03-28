@@ -42,6 +42,15 @@ tools:
 - design-qa-agent는 "화면 하나를 깊게" 봅니다.
 - 이 에이전트의 출력(hints)이 design-qa-agent의 정확도를 높입니다.
 
+**데이터 소스 우선순위**:
+```
+1순위: Figma MCP (Dev Mode) — get_design_context, get_screenshot, get_variable_defs
+2순위: 로컬 캐시 (.figma-cache) — cache_dir 제공 시 API 호출 없이 동작
+3순위: Figma REST API — MCP rate limit 도달 시 자동 전환
+```
+> MCP 호출 시 "Rate limit exceeded" 에러가 발생하면, `cache_dir`이 있으면 캐시를 사용하고,
+> 없으면 FIGMA_TOKEN 환경변수가 있을 때 REST API로 자동 전환합니다.
+
 ---
 
 ## 입력 스펙

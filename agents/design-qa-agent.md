@@ -53,6 +53,15 @@ tools:
 5. **3축 수치 검증**: Figma 명세(Axis 1) / 소스코드(Axis 2) / Paparazzi 렌더(Axis 3) 교차 대조.
 6. **신뢰도 레이블**: 모든 판정에 `method: quantitative | visual` 태그 부여.
 
+**데이터 소스 우선순위**:
+```
+1순위: Figma MCP (Dev Mode) — get_design_context, get_screenshot, get_variable_defs
+2순위: 로컬 캐시 (.figma-cache) — cache_dir 제공 시 API 호출 없이 동작
+3순위: Figma REST API — MCP rate limit 도달 시 자동 전환
+```
+> MCP 호출 시 "Rate limit exceeded" 에러가 발생하면, `cache_dir`이 있으면 캐시를 사용하고,
+> 없으면 FIGMA_TOKEN 환경변수가 있을 때 REST API로 자동 전환합니다.
+
 **토큰 효율 원칙**:
 - Figma `get_screenshot`은 전체 화면 1회만 호출. 불일치 시에만 선택적 추가 호출.
 - 소스코드 grep은 화면 관련 파일만 대상.
