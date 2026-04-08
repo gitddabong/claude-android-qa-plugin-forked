@@ -155,13 +155,33 @@ mcp__figma-desktop__get_variable_defs(nodeId: "<node_id>")
 
 ## Step 3 — 시각 참조 스크린샷 (`get_screenshot`)
 
-각 figma_node당 **1회만** 호출합니다.
+### 3.1 전체 화면 스크린샷
+
+각 figma_node당 **1회** 호출합니다.
 
 ```
 mcp__figma-desktop__get_screenshot(nodeId: "<node_id>")
 ```
 
 스크린샷을 임시 경로에 저장하고 경로를 반환합니다.
+
+### 3.2 주요 컨테이너별 스크린샷 (신규)
+
+`figma_spec` 트리에서 **주요 컨테이너 노드**를 식별하고 개별 스크린샷을 수집합니다.
+
+**주요 컨테이너 선정 기준**:
+- `type: FRAME` 이면서
+- `children.length ≥ 2` 이고
+- 크기가 48dp 초과인 노드
+
+**호출 제한**: 최대 **10개** 컨테이너까지 (토큰 효율)
+
+```
+for container in MAJOR_CONTAINERS[:10]:
+  mcp__figma-desktop__get_screenshot(nodeId: container.node_id)
+```
+
+각 스크린샷을 `container_<node_id>` 키로 저장합니다.
 
 ---
 
@@ -219,7 +239,7 @@ figma_spec: {
   }
 }
 figma_token_map: { <토큰명>: <값> }
-figma_screenshots: { "<label>": "<파일 경로>" }
+figma_screenshots: { "<label>": "<파일 경로>", "container_<node_id>": "<파일 경로>" }
 ```
 
 > `figma_spec`의 각 노드는 재귀적 트리 구조입니다. 모든 자식의 속성이 포함됩니다.

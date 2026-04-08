@@ -36,6 +36,9 @@ network_image_zones: [               # 마스킹 대상 영역
 transition_alerts: [                 # 상태 전환 주의 포인트
   { component, impl_status }
 ]
+container_screenshots: {             # 컨테이너별 Figma 스크린샷 (선택)
+  "container_<node_id>": "<path>"
+}
 dp_ratio: <DP_RATIO>
 pixel_tool: <imagemagick | python3_pil | none>
 ssim_tool: <skimage | fallback>
@@ -60,9 +63,11 @@ hints: {}                            # 선택 — design-consistency-agent hints
    - 그림자/엘리베이션, 텍스트 정렬, 아이콘 형태
    - 소형 컴포넌트: Divider 존재/위치, Checkbox·Switch·Radio 크기/색상, Badge, IconButton, Chip
 
-### 4.2 불일치 컴포넌트 상세 비교
+### 4.2 컴포넌트별 상세 비교
 
-**트리거**: (1) 4.1에서 불일치 감지된 컴포넌트 (2) `micro_components` 전체 (무조건)
+**트리거**: (1) `figma_spec`의 모든 컨테이너 노드 (children ≥ 2, size > 48dp) (2) `micro_components` 전체 (무조건)
+
+> **변경 사유**: 기존에는 4.1에서 불일치가 감지된 컴포넌트만 상세 비교했으나, 전체 화면 SSIM에서 "대략 비슷"하면 미세 불일치가 누락됨. 모든 컨테이너를 의무적으로 비교합니다.
 
 1. Figma 컴포넌트 `get_screenshot` 선택적 호출
 2. Paparazzi 스냅샷에서 컴포넌트 크롭 (Figma 좌표 → 스냅샷 좌표 변환: `figma_coord * dp_ratio`)
@@ -74,11 +79,16 @@ hints: {}                            # 선택 — design-consistency-agent hints
 - SSIM 윈도우 크기 축소: `min(7, 이미지_최소변 // 3)`, stride=1
 - 인벤토리 > 20개 시: 동일 타입 첫 3개만 상세, 나머지 수치 검증만
 
-**SSIM 판정 — 일반 컴포넌트**:
-- ≥ 0.95 → Pass / 0.85~0.95 → Minor / < 0.85 → Critical
+**SSIM 판정 — 크기별 차등 적용**:
 
-**SSIM 판정 — 소형 컴포넌트**:
-- ≥ 0.90 → Pass / 0.80~0.90 → Minor / < 0.80 → Critical
+| 카테고리 | 크기 기준 | Pass | Minor | Critical |
+|---------|---------|------|-------|----------|
+| 전체 화면 | - | ≥ 0.90 | 0.80~0.90 | < 0.80 |
+| 대형 컨테이너 | > 100px | ≥ 0.95 | 0.85~0.95 | < 0.85 |
+| 중간 컴포넌트 | 50~100px | ≥ 0.97 | 0.90~0.97 | < 0.90 |
+| 소형 컴포넌트 | ≤ 50px | ≥ 0.90 | 0.80~0.90 | < 0.80 |
+
+> **전체 화면 SSIM**은 1차 필터 역할만 합니다. 전체 화면이 Pass여도 **모든 컨테이너에 대해 상세 비교를 수행**합니다.
 
 ### 4.3 색상 정밀 비교 (CIEDE2000)
 

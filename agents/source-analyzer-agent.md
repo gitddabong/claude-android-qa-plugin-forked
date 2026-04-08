@@ -163,6 +163,38 @@ done
 **토큰 참조 추적**: `AppTheme.typography.bodyMedium` → 정의 파일까지 추적해 실제 값 확인.
 **R.string 추적**: `R.string.*` → `strings.xml`까지 추적해 실제 문자열 확인.
 
+### 6.1.1 Typography 토큰 내부값 역추적 (필수)
+
+Typography 토큰을 사용하는 경우, **토큰명뿐만 아니라 토큰 정의의 실제 속성값을 반드시 역추적**합니다.
+
+```bash
+# Typography 정의 파일 탐색
+grep -rn "val.*TextStyle\|headingSmall\|headingMedium\|bodyLarge\|bodyMedium\|labelLarge\|labelMedium\|labelSmall" \
+  <SRC_MAIN>/**/Typography*.kt <SRC_MAIN>/**/Type*.kt <SRC_MAIN>/**/designsystem/**/Typography*.kt 2>/dev/null
+```
+
+각 Typography 토큰에 대해 `resolved` 객체를 생성합니다:
+
+```
+예: CheezuTheme.typography.bodyMedium 사용 시
+
+1단계 — 토큰명 추출: "bodyMedium"
+2단계 — Typography.kt에서 bodyMedium의 TextStyle 정의를 찾음:
+  bodyMedium = TextStyle(
+      fontFamily = PretendardFontFamily,
+      fontWeight = FontWeight.SemiBold,
+      fontSize = 16.sp,
+      lineHeight = 22.sp,
+      letterSpacing = (-0.4).sp,
+  )
+3단계 — resolved 객체 생성:
+  resolved: { fontSize: 16, fontWeight: 600, lineHeight: 22, letterSpacing: -0.4 }
+```
+
+> **중요**: `lineHeight`는 디자인 QA에서 자주 불일치가 발생하는 속성입니다.
+> Figma에서 텍스트마다 다른 lineHeight를 지정하더라도, 코드에서는 하나의 토큰을 공유하여 lineHeight가 다를 수 있습니다.
+> 반드시 역추적하여 실제 값을 포함해야 합니다.
+
 ### 6.2 Modifier 체인 분석
 
 Compose Modifier 체인은 **순서에 따라 의미가 달라집니다**. 단순 grep이 아닌 체인 컨텍스트를 파악합니다.
@@ -226,7 +258,11 @@ source_values: {
   <file:line>: {
     composable: "Button",
     modifier_chain: [{ modifier: "padding", value: "16.dp", layer: "outer" }, ...],
-    params: { text: "로그인", fontSize: "16.sp", fontWeight: "Bold" }
+    params: { text: "로그인", fontSize: "16.sp", fontWeight: "Bold" },
+    typography: {                          # Typography 토큰 사용 시
+      token: "CheezuTheme.typography.bodyMedium",
+      resolved: { fontSize: 16, fontWeight: 600, lineHeight: 22, letterSpacing: -0.4 }
+    }
   }
 }
 composable_tree: { ... }   // Step 6.3의 트리 구조

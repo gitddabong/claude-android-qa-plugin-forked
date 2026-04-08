@@ -316,7 +316,7 @@ cd <PROJECT_ROOT> && ./gradlew :<MODULE_PATH>:recordPaparazziDebug \
 | `counterAxisAlignItems: CENTER` | `Alignment.CenterVertically` | Minor |
 | `itemSpacing` | `spacedBy()` / `Spacer` | 수치 비교 → 허용 오차 적용 |
 | 자식 노드 개수 | Composable 자식 호출 개수 | Critical — 요소 누락/추가 |
-| 자식 노드 순서 | Composable 호출 순서 | Minor |
+| 자식 노드 순서 | Composable 호출 순서 | **Critical** — 동일 타입 형제의 순서 차이는 UX에 직접 영향 |
 
 **구조 비교 절차**:
 1. Figma 루트 `layoutMode` ↔ 소스 최외곽 Row/Column/Box
@@ -358,6 +358,8 @@ Modifier 체인은 source-analyzer의 `modifier_chain` 분석 결과를 사용�
 | 색상 | dE ≤ 3 |
 | Divider 두께 | ±0dp |
 | 소형 컴포넌트 크기 | ±1dp |
+| 아이콘(Icon) 크기 | **±0dp** (정확 일치 요구) |
+| lineHeight | **±0sp** (정확 일치 요구, 신규) |
 | 레이아웃 방향 | 정확 일치 |
 | 정렬 (alignment) | 정확 일치 |
 
@@ -378,6 +380,37 @@ Modifier 체인은 source-analyzer의 `modifier_chain` 분석 결과를 사용�
 
 > 위는 예시입니다. 실제 실행 시 ELEMENT_MAP × figma_spec의 모든 수치 속성을 행으로 나열합니다.
 
+#### lineHeight 교차 검증 (신규)
+
+source-analyzer의 `resolved` 값과 figma-spec-parser의 `lineHeight`를 **직접 비교**합니다.
+
+```
+예: Text 요소 매핑 쌍
+  Figma lineHeight: 32sp (figma_spec에서 추출)
+  소스코드 lineHeight: 22sp (source_values.typography.resolved.lineHeight에서 추출)
+  → 불일치 (32 ≠ 22) → Minor
+```
+
+- **허용 오차**: ±0sp (정확 일치)
+- **불일치 시**: Minor (lineHeight 차이는 시각적으로 눈에 띄지만 기능에 직접 영향은 적음)
+- **비교 대상**: ELEMENT_MAP의 모든 텍스트 노드 매핑 쌍
+- **전제 조건**: source-analyzer가 Typography 토큰의 `resolved` 값을 반환해야 함 (Step 6.1.1)
+
+> **주의**: Figma에서 텍스트마다 다른 lineHeight를 지정해도, 코드에서는 하나의 Typography 토큰을 공유하여 lineHeight가 동일할 수 있습니다. 이 차이를 정확하게 리포트해야 합니다.
+
+#### 아이콘 크기 검증 (강화)
+
+아이콘(Icon, IconButton 내부 Icon) 요소는 **±0dp** 정확 일치를 요구합니다:
+
+```
+예: 아이콘 크기 매핑 쌍
+  Figma size: 20dp
+  소스코드 size: 18.dp
+  → 불일치 (20 ≠ 18) → Critical (아이콘 크기 정확 일치 위반)
+```
+
+> 기존 소형 컴포넌트 ±1dp 기준과 별도로, 아이콘은 크기가 작아 1dp 차이도 시각적으로 눈에 띄므로 정확 일치를 요구합니다.
+
 **미매핑 요소 처리**:
 - `UNMATCHED_FIGMA` → "**구현 누락 의심**" (Critical)
 - `UNMATCHED_SOURCE` → "**명세 누락 의심**" (Minor)
@@ -387,7 +420,7 @@ Modifier 체인은 source-analyzer의 `modifier_chain` 분석 결과를 사용�
 ELEMENT_MAP의 텍스트 노드 매핑 기반 1:1 대조:
 - 하드코딩: `Text("...")` ↔ Figma `textContent`
 - 리소스: `stringResource(R.string.xxx)` → `strings.xml` 추적 → Figma와 비교
-- 불일치 → Critical (오타/누락) 또는 Minor (대소문자/공백)
+- 불일치 → Critical (오타/누락/부분 일치(substring) — 텍스트 잘림은 정보 누락) 또는 Minor (대소문자/공백만 다른 경우)
 
 ### 4.3 아이콘 검증
 
@@ -410,6 +443,7 @@ screen_name, figma_screenshots, snapshot_images,
 figma_spec, figma_token_map, color_map,
 micro_components, numeric_results (Phase 4 결과),
 network_image_zones, transition_alerts,
+container_screenshots (figma-spec-parser의 컨테이너별 스크린샷),
 dp_ratio, pixel_tool, ssim_tool,
 test_files, hints
 ```
